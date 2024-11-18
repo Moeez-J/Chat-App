@@ -12,6 +12,10 @@ export const uploadFileToS3 = async (file: File): Promise<string> => {
   const bucketName = import.meta.env.VITE_AWS_S3_BUCKET_NAME;
 
   if (!bucketName) {
+    console.log('Bucket Name:', import.meta.env.VITE_AWS_S3_BUCKET_NAME);
+console.log('AWS Region:', import.meta.env.VITE_AWS_REGION);
+console.log('Access Key:', import.meta.env.VITE_AWS_ACCESS_KEY);
+
     throw new Error("Bucket name is not defined in environment variables");
   }
 
