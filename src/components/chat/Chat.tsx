@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   collection,
   query,
@@ -66,6 +66,8 @@ const Chat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState<string>('');
   const [view, setView] = useState<'chat' | 'profile'>('chat');
+  
+  const messagesEndRef = useRef<HTMLDivElement | null>(null); // Ref for the messages container
 
   useEffect(() => {
     if (!currentUser) return;
@@ -103,6 +105,16 @@ const Chat: React.FC = () => {
       setMessages(msgs);
     });
   };
+
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]); // Scroll whenever messages are updated
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -148,212 +160,212 @@ const Chat: React.FC = () => {
 
   return (
     <Grid container height="98vh" overflow="hidden">
-  {/* Sidebar */}
-  <Grid
-    item
-    xs={1}
-    sx={{
-      background: 'linear-gradient(135deg, #FF7E5F, #FEB47B)', // Gradient background
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100%',
-    }}
-  >
-    <Box display="flex" flexDirection="column" alignItems="center" gap={4}>
-      <IconButton
-        onClick={() => setView('profile')}
-        sx={{ color: 'white' }}
+      {/* Sidebar */}
+      <Grid
+        item
+        xs={1}
+        sx={{
+          background: 'linear-gradient(135deg, #FF7E5F, #FEB47B)', // Gradient background
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100%',
+        }}
       >
-        <AccountCircleIcon fontSize="large" />
-      </IconButton>
-      <IconButton
-        onClick={() => setView('chat')}
-        sx={{ color: 'white' }}
-      >
-        <ChatIcon fontSize="large" />
-      </IconButton>
-      <IconButton onClick={handleLogout} sx={{ color: 'white' }}>
-        <LogoutIcon fontSize="large" />
-      </IconButton>
-    </Box>
-  </Grid>
-
-  {/* Main Content */}
-  <Grid item xs={11} display="flex" flexDirection="column" height="100%">
-    {view === 'profile' ? (
-      <Profile />
-    ) : (
-      <>
-        {/* Header */}
-        <Box
-          p={2}
-          sx={{
-            background: 'linear-gradient(135deg,  #FF7E5F, #FEB47B)', // Gradient background for header
-            color: 'white',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexShrink: 0, // Prevent the header from shrinking
-          }}
-        >
-          <Typography variant="h6">
-            {chatUser ? chatUser.displayName : 'ChitChat'}
-          </Typography>
-          {chatUser && (
-            <IconButton onClick={handleCloseChat} sx={{ color: 'white' }}>
-              <CloseIcon />
-            </IconButton>
-          )}
+        <Box display="flex" flexDirection="column" alignItems="center" gap={4}>
+          <IconButton
+            onClick={() => setView('profile')}
+            sx={{ color: 'white' }}
+          >
+            <AccountCircleIcon fontSize="large" />
+          </IconButton>
+          <IconButton
+            onClick={() => setView('chat')}
+            sx={{ color: 'white' }}
+          >
+            <ChatIcon fontSize="large" />
+          </IconButton>
+          <IconButton onClick={handleLogout} sx={{ color: 'white' }}>
+            <LogoutIcon fontSize="large" />
+          </IconButton>
         </Box>
+      </Grid>
 
-        <Grid container height="calc(100% - 64px)" overflow="hidden">
-          {/* Users List */}
-          <Grid
-            item
-            xs={4}
-            bgcolor="background.default"
-            borderRight={1}
-            borderColor="grey.300"
-            overflowY="auto"
-            height="100%" // Maintain consistent height
-          >
-            <List>
-              {users.map((user) => (
-                <ListItem
-                  key={user.uid}
-                  component="button"
-                  onClick={() => selectUser(user)}
-                  selected={chatUser?.uid === user.uid}
-                  sx={{
-                    textAlign: 'left',
-                    width: '100%',
-                    backgroundColor: chatUser?.uid === user.uid ? 'primary.light' : 'transparent',
-                    '&:hover': { backgroundColor: 'background.paper' },
-                    borderRadius: 2,
-                    mb: 1,
-                  }}
-                >
-                  <ListItemAvatar>
-                    <Avatar src={user.photoURL || profileimage} />
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={user.displayName || user.email}
-                    primaryTypographyProps={{
-                      fontWeight: chatUser?.uid === user.uid ? 700 : 500,
-                      color: chatUser?.uid === user.uid ? 'primary.main' : 'black',
-                    }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Grid>
+      {/* Main Content */}
+      <Grid item xs={11} display="flex" flexDirection="column" height="100%">
+        {view === 'profile' ? (
+          <Profile />
+        ) : (
+          <>
+            {/* Header */}
+            <Box
+              p={2}
+              sx={{
+                background: 'linear-gradient(135deg,  #FF7E5F, #FEB47B)', // Gradient background for header
+                color: 'white',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexShrink: 0, // Prevent the header from shrinking
+              }}
+            >
+              <Typography variant="h6">
+                {chatUser ? chatUser.displayName : 'ChitChat'}
+              </Typography>
+              {chatUser && (
+                <IconButton onClick={handleCloseChat} sx={{ color: 'white' }}>
+                  <CloseIcon />
+                </IconButton>
+              )}
+            </Box>
 
-          {/* Chat Section */}
-          <Grid
-            item
-            xs={8}
-            display="flex"
-            flexDirection="column"
-            overflow="hidden"
-            height="100%" // Maintain consistent height
-          >
-            {chatUser ? (
-              <>
-                {/* Messages */}
-                <Box
-                  flexGrow={1}
-                  overflow="auto"
-                  p={2}
-                  bgcolor="background.paper"
-                  display="flex"
-                  flexDirection="column"
-                  gap={2}
-                >
-                  {messages.map((msg, index) => (
+            <Grid container height="calc(100% - 64px)" overflow="hidden">
+              {/* Users List */}
+              <Grid
+                item
+                xs={4}
+                bgcolor="background.default"
+                borderRight={1}
+                borderColor="grey.300"
+                overflowY="auto"
+                height="100%" // Maintain consistent height
+              >
+                <List>
+                  {users.map((user) => (
+                    <ListItem
+                      key={user.uid}
+                      component="button"
+                      onClick={() => selectUser(user)}
+                      selected={chatUser?.uid === user.uid}
+                      sx={{
+                        textAlign: 'left',
+                        width: '100%',
+                        backgroundColor: chatUser?.uid === user.uid ? 'primary.light' : 'transparent',
+                        '&:hover': { backgroundColor: 'background.paper' },
+                        borderRadius: 2,
+                        mb: 1,
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar src={user.photoURL || profileimage} />
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={user.displayName || user.email}
+                        primaryTypographyProps={{
+                          fontWeight: chatUser?.uid === user.uid ? 700 : 500,
+                          color: chatUser?.uid === user.uid ? 'primary.main' : 'black',
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Grid>
+
+              {/* Chat Section */}
+              <Grid
+                item
+                xs={8}
+                display="flex"
+                flexDirection="column"
+                overflow="hidden"
+                height="100%" // Maintain consistent height
+              >
+                {chatUser ? (
+                  <>
+                    {/* Messages */}
                     <Box
-                      key={index}
-                      alignSelf={msg.from === currentUser!.uid ? 'flex-end' : 'flex-start'}
-                      bgcolor={msg.from === currentUser!.uid ? 'primary.light' : 'grey.300'}
-                      color={msg.from === currentUser!.uid ? 'white' : 'black'}
-                      px={3}
-                      py={1}
-                      borderRadius={3}
-                      boxShadow={1}
-                      maxWidth="70%"
+                      flexGrow={1}
+                      overflow="auto"
+                      p={2}
+                      bgcolor="background.paper"
                       display="flex"
                       flexDirection="column"
+                      gap={2}
                     >
-                      <Typography>{msg.text}</Typography>
-                      <Typography
-                        variant="caption"
-                        align="right"
-                        color="text.secondary"
-                        mt={1}
-                      >
-                        {msg.createdAt ? formatTimestamp(msg.createdAt) : ''}
-                      </Typography>
+                      {messages.map((msg, index) => (
+                        <Box
+                          key={index}
+                          alignSelf={msg.from === currentUser!.uid ? 'flex-end' : 'flex-start'}
+                          bgcolor={msg.from === currentUser!.uid ? 'primary.light' : 'grey.300'}
+                          color={msg.from === currentUser!.uid ? 'white' : 'black'}
+                          px={3}
+                          py={1}
+                          borderRadius={3}
+                          boxShadow={1}
+                          maxWidth="70%"
+                          display="flex"
+                          flexDirection="column"
+                        >
+                          <Typography>{msg.text}</Typography>
+                          <Typography
+                            variant="caption"
+                            align="right"
+                            color="text.secondary"
+                            mt={1}
+                          >
+                            {msg.createdAt ? formatTimestamp(msg.createdAt) : ''}
+                          </Typography>
+                        </Box>
+                      ))}
+                      <div ref={messagesEndRef} /> {/* Scroll target */}
                     </Box>
-                  ))}
-                </Box>
 
-                {/* Input Area */}
-                <Box
-                  component="form"
-                  onSubmit={handleSubmit}
-                  display="flex"
-                  p={2}
-                  borderTop={1}
-                  borderColor="grey.300"
-                  bgcolor="background.default"
-                  flexShrink={0} // Prevent shrinking
-                >
-                  <TextField
-                    variant="outlined"
-                    fullWidth
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="Enter message..."
-                    size="small"
-                  />
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="secondary"
-                    sx={{ ml: 2 }}
-                    endIcon={<SendIcon />}
+                    {/* Input Area */}
+                    <Box
+                      component="form"
+                      onSubmit={handleSubmit}
+                      display="flex"
+                      p={2}
+                      borderTop={1}
+                      borderColor="grey.300"
+                      bgcolor="background.default"
+                      flexShrink={0} // Prevent shrinking
+                    >
+                      <TextField
+                        variant="outlined"
+                        fullWidth
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder="Enter message..."
+                        size="small"
+                      />
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        color="secondary"
+                        sx={{ ml: 2 }}
+                        endIcon={<SendIcon />}
+                      >
+                        Send
+                      </Button>
+                    </Box>
+                  </>
+                ) : (
+                  <Box
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    flexGrow={1}
+                    bgcolor="background.paper"
+                    flexDirection="column"
                   >
-                    Send
-                  </Button>
-                </Box>
-              </>
-            ) : (
-              <Box
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                flexGrow={1}
-                bgcolor="background.paper"
-                flexDirection="column"
-              >
-                <img
-                  src={NoUsersImage}
-                  alt="No users selected"
-                  style={{ maxWidth: '250px', marginBottom: '20px' }}
-                />
-                <Typography variant="h6" color="text.secondary">
-                  Select a user to start chatting
-                </Typography>
-              </Box>
-            )}
-          </Grid>
-        </Grid>
-      </>
-    )}
-  </Grid>
-</Grid>
-
+                    <img
+                      src={NoUsersImage}
+                      alt="No users selected"
+                      style={{ maxWidth: '250px', marginBottom: '20px' }}
+                    />
+                    <Typography variant="h6" color="text.secondary">
+                      Select a user to start chatting
+                    </Typography>
+                  </Box>
+                )}
+              </Grid>
+            </Grid>
+          </>
+        )}
+      </Grid>
+    </Grid>
   );
 };
 
