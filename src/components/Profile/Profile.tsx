@@ -1,7 +1,8 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { db } from '../../services/firebase';
 import { AuthContext } from '../../context/AuthContext';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
 import {
   Avatar,
   Box,
@@ -11,6 +12,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { uploadFileToS3 } from '../../utils/awsconfig';
 
 interface UserInfo {
   displayName: string;
@@ -29,13 +31,39 @@ const Profile: React.FC = () => {
 
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [userInfo, setUserInfo] = useState<UserInfo>({
-    displayName: currentUser?.displayName || '',
-    email: currentUser?.email || '',
-    photoURL: currentUser?.photoURL || '',
+    displayName: '',
+    email: '',
+    photoURL: '',
   });
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchUserData = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as UserInfo;
+          setUserInfo(userData);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, [currentUser]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setUserInfo({ ...userInfo, [e.target.name]: e.target.value });
+    const { name, value, files } = e.target;
+
+    if (name === 'photo' && files && files[0]) {
+      setPhotoFile(files[0]);
+    } else {
+      setUserInfo({ ...userInfo, [name]: value });
+    }
   };
 
   const handleEditToggle = (): void => {
@@ -46,17 +74,37 @@ const Profile: React.FC = () => {
     if (!currentUser) return;
 
     try {
+      setIsUploading(true);
+
+      let photoURL = userInfo.photoURL;
+
+      // Upload new photo if a file is selected
+      if (photoFile) {
+        photoURL = await uploadFileToS3(photoFile);
+      }
+
       const updateData: { [key: string]: any } = {
         displayName: userInfo.displayName,
-        email: userInfo.email,
-        photoURL: userInfo.photoURL,
+        photoURL,
       };
 
+      // Update Firestore
       await updateDoc(doc(db, 'users', currentUser.uid), updateData);
 
+      // Update Firebase Auth currentUser
+      await updateProfile(currentUser, {
+        displayName: userInfo.displayName,
+        photoURL,
+      });
+
+      // Update local state
+      setUserInfo((prev) => ({ ...prev, photoURL }));
+      setPhotoFile(null);
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -73,12 +121,30 @@ const Profile: React.FC = () => {
         <CardContent>
           <Box display="flex" flexDirection="column" alignItems="center" mb={2}>
             <Avatar
-              src={userInfo.photoURL}
+              src={
+                photoFile
+                  ? URL.createObjectURL(photoFile)
+                  : userInfo.photoURL || undefined
+              }
               alt="Profile"
               sx={{ width: 100, height: 100, mb: 2 }}
             />
-            <Typography variant="h5" fontWeight="bold">
-              {isEditing ? (
+            {isEditing ? (
+              <>
+                <Button
+                  variant="contained"
+                  component="label"
+                  sx={{ mb: 2 }}
+                >
+                  Upload New Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    name="photo"
+                    onChange={handleChange}
+                  />
+                </Button>
                 <TextField
                   variant="outlined"
                   name="displayName"
@@ -86,14 +152,19 @@ const Profile: React.FC = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
+                  label="Display Name"
                 />
-              ) : (
-                userInfo.displayName || 'Your Name'
-              )}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {userInfo.email}
-            </Typography>
+              </>
+            ) : (
+              <>
+                <Typography variant="h5" fontWeight="bold">
+                  {userInfo.displayName || 'Your Name'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {userInfo.email}
+                </Typography>
+              </>
+            )}
           </Box>
 
           <Box mt={2}>
@@ -103,8 +174,9 @@ const Profile: React.FC = () => {
                 color="primary"
                 fullWidth
                 onClick={handleSave}
+                disabled={isUploading}
               >
-                Save Changes
+                {isUploading ? 'Saving...' : 'Save Changes'}
               </Button>
             ) : (
               <Button

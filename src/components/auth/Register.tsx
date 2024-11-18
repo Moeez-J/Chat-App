@@ -3,6 +3,7 @@ import { auth, db } from '../../services/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import { uploadFileToS3 } from '../../utils/awsconfig'; // Import S3 utility
 import {
   Box,
   TextField,
@@ -15,6 +16,7 @@ const Register: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const navigate = useNavigate();
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -23,16 +25,31 @@ const Register: React.FC = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      await updateProfile(user, { displayName });
+      let photoURL = '';
+      if (photoFile) {
+        photoURL = await uploadFileToS3(photoFile); // Upload photo to AWS S3
+      }
+
+      await updateProfile(user, { displayName, photoURL });
+
+      // Save user details to Firestore
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         displayName,
         email,
+        photoURL,
       });
 
       navigate('/');
     } catch (error) {
       console.error('Error during registration:', error);
+    }
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
     }
   };
 
@@ -70,14 +87,6 @@ const Register: React.FC = () => {
           mb={3}
         >
           Register
-        </Typography>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          mb={4}
-          textAlign="center"
-        >
-          Create your account to get started.
         </Typography>
         <form
           onSubmit={handleRegister}
@@ -121,38 +130,41 @@ const Register: React.FC = () => {
               required
               fullWidth
             />
-            
-          <Button
-            type="submit"
-            variant="contained"
-            fullWidth
-            sx={{
-              mt: 3,
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #34a853, #1a73e8)',
-              fontSize: '16px',
-              color: '#fff',
-            }}
-          >
-            Register
-          </Button>
-          </Box>
-        </form>
-        <Box mt={4}>
-          <Typography variant="body2">
-            Already have an account?{' '}
             <Button
-              href="/login"
+              variant="contained"
+              component="label"
+              fullWidth
               sx={{
-                textTransform: 'none',
-                color: 'primary.main',
-                fontWeight: 'bold',
+                mt: 2,
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #FF7E5F, #FEB47B)',
+                color: '#fff',
               }}
             >
-              Log in
+              Upload Profile Picture
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={handlePhotoChange}
+              />
             </Button>
-          </Typography>
-        </Box>
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              sx={{
+                mt: 3,
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #34a853, #1a73e8)',
+                fontSize: '16px',
+                color: '#fff',
+              }}
+            >
+              Register
+            </Button>
+          </Box>
+        </form>
       </Paper>
     </Box>
   );
